@@ -1,4 +1,3 @@
-from geastman.web.httpvars import httpvars
 import ConfigParser
 from datetime import datetime
 from datetime import date
@@ -24,8 +23,7 @@ class user:
         del self.isadmin
 
 
-def getDate(req):
-    httpvar = httpvars(req)
+def getDate(httpvar):
     month = httpvar.getValue("month")
     year = httpvar.getValue("year")
     
@@ -46,10 +44,16 @@ def getUser(req):
     user = req.user
     if not user:
         config = ConfigParser.ConfigParser()
-        file = os.path.dirname(__file__) + "/../../main.cfg"
-        config.read(file)
+        configFile = os.path.dirname(__file__) + "/../../main.cfg"
+        config.read(configFile)
         user = config.get("Main", "defaultuser")
     return user.lower()
+
+def getClass(httpvar):
+    classType = httpvar.getValue("class")
+    if classType == None:
+        classType = 1
+    return int(classType)
 
 def getNextMonth(d):
     month = d.month
@@ -71,18 +75,25 @@ def getPrevMonth(d):
     return datetime.strptime(s, "%Y-%m").date()
 
 
-def isDateReadOnly(d, hosts = None):
-    if getNumHostsNeeded(d, hosts) == 0:
+def isDateReadOnly(d, hosts, classType):
+    if getNumHostsNeeded(d, hosts, classType) == 0:
         return 1
     return 0
 
-def getNumHostsNeeded(d, hosts):
+def getNumHostsNeeded(d, hosts, classType):
+    #TODO: make less hacky so that classTypes aren't hard-coded
     if d.weekday() == 4: #Friday
-        return 0
+        if classType == 1:
+            return 0
+        else:
+            return 1
     elif d.weekday() == 5: #Saturday
         return 0
     elif d.weekday() == 6:  #Sunday
-        return 2
+        if classType == 1:
+            return 2
+        else:
+            return 0
     return 1
 
 
@@ -104,13 +115,13 @@ def buildTemplate():
 
 
 
-def getNavigation(d, page):
+def getNavigation(d, page, classType):
     prev = getPrevMonth(d)
     next = getNextMonth(d)
     s = """\
-<a href="%(page)s?month=%(pmon)s&year=%(pyear)s">&lt;&lt;Previous Month</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="%(page)s?month=%(nmon)s&year=%(nyear)s">Next Month&gt;&gt;</a>
+<a href="%(page)s?class=%(classType)s&month=%(pmon)s&year=%(pyear)s">&lt;&lt;Previous Month</a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="%(page)s?class=%(classType)s&month=%(nmon)s&year=%(nyear)s">Next Month&gt;&gt;</a>
 <br /><br />
-""" % {'page': page, 'pmon': prev.month, 'pyear': prev.year, 'nmon': next.month, 'nyear': next.year }
+""" % {'page': page, 'classType': classType, 'pmon': prev.month, 'pyear': prev.year, 'nmon': next.month, 'nyear': next.year }
     return s
 
 def expandUsernames(li, date):

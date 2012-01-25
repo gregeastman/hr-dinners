@@ -6,8 +6,9 @@ from mod_python import util
 # The Publisher passes the Request object to the function
 def index(req):
     user = utility.getUser(req)
-    date = utility.getDate(req)
     httpvar = httpvars(req)
+    classType = utility.getClass(httpvar)
+    date = utility.getDate(httpvar)
     availability = httpvar.getArray("availability")
     
     dbconn = dataconnect()
@@ -15,9 +16,9 @@ def index(req):
     if userInfo != None:
         for day, status in availability.iteritems():
             d = date.fromordinal(int(day))
-            dbconn.updateAvailability(userInfo.id, d, int(status)) #this could fail and we aren't bubbling the error up, but it shouldn't happen
+            dbconn.updateAvailability(userInfo.id, d, int(status), classType) #this could fail and we aren't bubbling the error up, but it shouldn't happen
     
     del dbconn
     
-    page = './?month=%(month)s&year=%(year)s' % {'month': date.month, 'year': date.year }
+    page = './?class=%(class)s&month=%(month)s&year=%(year)s' % {'month': date.month, 'year': date.year, 'class': classType }
     util.redirect(req, page)

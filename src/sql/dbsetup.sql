@@ -1,4 +1,23 @@
 --CREATE LANGUAGE plpgsql;
+CREATE SEQUENCE class_id
+  INCREMENT 1
+  MINVALUE 1
+  MAXVALUE 9223372036854775807
+  START 1
+  CACHE 1;
+ALTER TABLE class_id OWNER TO "www-data";
+CREATE TABLE class
+(
+  id integer NOT NULL DEFAULT nextval('class_id'::regclass),
+  name character varying(45) NOT NULL ,
+  CONSTRAINT class_pkey PRIMARY KEY (id)
+)
+WITH (
+  OIDS=FALSE
+);
+ALTER TABLE class OWNER to "www-data";
+INSERT INTO class (id, name) VALUES (1, 'Candidate Dinner');
+INSERT INTO class (id, name) VALUES (2, 'Shadowing Interview');
 
 
 CREATE SEQUENCE status_id
@@ -11,17 +30,26 @@ ALTER TABLE status_id OWNER TO "www-data";
 CREATE TABLE status
 (
   id integer NOT NULL DEFAULT nextval('status_id'::regclass),
-  name character varying(45) NOT NULL ,
-  reportable boolean NOT NULL DEFAULT TRUE,
-  CONSTRAINT status_pkey PRIMARY KEY (id)
+  "name" character varying(45) NOT NULL,
+  reportable boolean NOT NULL DEFAULT true,
+  classid integer NOT NULL,
+  isunavailable boolean NOT NULL DEFAULT false,
+  CONSTRAINT status_pkey PRIMARY KEY (id),
+  CONSTRAINT status_classid_fkey FOREIGN KEY (classid)
+      REFERENCES "class" (id) MATCH SIMPLE
+      ON UPDATE NO ACTION ON DELETE NO ACTION
 )
 WITH (
   OIDS=FALSE
 );
 ALTER TABLE status OWNER TO "www-data";
-INSERT INTO status (id, name, reportable) VALUES (1, 'Willing to Help', TRUE);
-INSERT INTO status (id, name, reportable) VALUES (2, 'Can Help if Needed', TRUE);
-INSERT INTO status (id, name, reportable) VALUES (3, 'Unavailable', FALSE);
+INSERT INTO status (id, name, reportable, classid, isunavailable) VALUES (1, 'Willing to Help', TRUE, 1, FALSE);
+INSERT INTO status (id, name, reportable, classid, isunavailable) VALUES (2, 'Can Help if Needed', TRUE, 1, FALSE);
+INSERT INTO status (id, name, reportable, classid, isunavailable) VALUES (3, 'Unavailable', FALSE, 1, TRUE);
+INSERT INTO status (id, name, reportable, classid, isunavailable) VALUES (4, 'Available AM', TRUE, 2, FALSE);
+INSERT INTO status (id, name, reportable, classid, isunavailable) VALUES (5, 'Available PM', TRUE, 2, FALSE);
+INSERT INTO status (id, name, reportable, classid, isunavailable) VALUES (6, 'Available All Day', TRUE, 2, FALSE);
+INSERT INTO status (id, name, reportable, classid, isunavailable) VALUES (7, 'Unavailable', FALSE, 2, TRUE);
 
 
 
@@ -100,6 +128,7 @@ CREATE TABLE availability
   status integer NOT NULL DEFAULT 3,
   assigned boolean NOT NULL DEFAULT FALSE,
   userid integer NOT NULL,
+  classid integer NOT NULL,
   CONSTRAINT availability_pkey PRIMARY KEY (id),
   CONSTRAINT availability_status_fkey FOREIGN KEY (status)
       REFERENCES status (id) MATCH SIMPLE
@@ -107,7 +136,10 @@ CREATE TABLE availability
   CONSTRAINT availability_userid_fkey FOREIGN KEY (userid)
       REFERENCES users (id) MATCH SIMPLE
       ON UPDATE NO ACTION ON DELETE NO ACTION,
-  CONSTRAINT availability_day_key UNIQUE (day, userid)
+  CONSTRAINT availability_classid_fkey FOREIGN KEY (classid)
+    REFERENCES class (id) MATCH SIMPLE
+    ON UPDATE NO ACTION ON DELETE NO ACTION,
+  CONSTRAINT availability_day_key UNIQUE (day, userid, classid)
 )
 WITH (
   OIDS=FALSE

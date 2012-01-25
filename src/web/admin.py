@@ -1,3 +1,4 @@
+from geastman.web.httpvars import httpvars
 import utility
 from database import dataconnect
 from calendar import month_name
@@ -7,8 +8,11 @@ from mod_python import util
 
 def index(req):
     user = utility.getUser(req)
-    first = utility.getDate(req)
+    httpvar = httpvars(req)
+    first = utility.getDate(httpvar)
     next = utility.getNextMonth(first)
+    
+    util.redirect(req, "./")
     
     dbconn = dataconnect()
     userInfo = dbconn.getUser(user)

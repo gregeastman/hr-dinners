@@ -1,3 +1,4 @@
+from geastman.web.httpvars import httpvars
 import utility
 from database import dataconnect
 from datetime import date
@@ -21,8 +22,11 @@ def _buildIndex(available):
 def index(req):
     user = utility.getUser(req)
 
-    first = utility.getDate(req)
+    httpvar = httpvars(req)
+    first = utility.getDate(httpvar)
     next = utility.getNextMonth(first)
+    
+    util.redirect(req, "./")
     
     dbconn = dataconnect()
     userInfo = dbconn.getUser(user)

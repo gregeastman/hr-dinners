@@ -1,11 +1,13 @@
-DROP FUNCTION IF EXISTS getavailable(date, date);
-DROP FUNCTION IF EXISTS getavailability(integer, date, date);
-DROP FUNCTION IF EXISTS updateavailability(integer, date, integer);
+DROP FUNCTION IF EXISTS getavailable(date, date, integer, integer);
+DROP FUNCTION IF EXISTS getavailability(integer, date, date, integer);
+DROP FUNCTION IF EXISTS updateavailability(integer, date, integer, integer);
 DROP FUNCTION IF EXISTS assignhost(integer, date);
 DROP FUNCTION IF EXISTS gethosts(date, date);
-DROP FUNCTION IF EXISTS getreportable();
-DROP FUNCTION IF EXISTS getselectable();
+DROP FUNCTION IF EXISTS getreportable(integer);
+DROP FUNCTION IF EXISTS getselectable(integer);
+DROP FUNCTION IF EXISTS getunavailablestatus(integer);
 DROP FUNCTION IF EXISTS updatehosts(date, integer);
+DROP FUNCTION IF EXISTS getclassinfo(integer);
 DROP FUNCTION IF EXISTS updateuser(character varying, character varying, character varying, character varying, character varying, boolean);
 DROP FUNCTION IF EXISTS auditchange(integer, character varying, character varying, character varying, character varying, boolean);
 DROP FUNCTION IF EXISTS getuser(character varying);
@@ -39,7 +41,8 @@ DROP TYPE IF EXISTS statustype;
 CREATE TYPE statustype as (
   id integer,
   name character varying,
-  reportable boolean
+  reportable boolean,
+  isunavailable boolean
 );
 ALTER TYPE statustype OWNER TO "www-data";
 DROP TYPE IF EXISTS hosttype;
@@ -73,6 +76,14 @@ CREATE TYPE usersnapshot as (
   old_active character varying,
   instantofupdate timestamp with time zone
 );
+ALTER TYPE usersnapshot OWNER TO "www-data";
+DROP TYPE IF EXISTS classtype;
+CREATE TYPE classtype as (
+  id integer,
+  name character varying
+);
+ALTER TYPE classtype OWNER TO "www-data";
+
 
 
 --assigns hosts to a given day
@@ -102,13 +113,13 @@ ALTER FUNCTION assignhost(integer, date) OWNER TO "www-data";
 
 
 --gets how available a user is for a given date range
-CREATE OR REPLACE FUNCTION getavailability(p_userid integer, p_first date, p_next date)
+CREATE OR REPLACE FUNCTION getavailability(p_userid integer, p_first date, p_next date, p_class integer)
     RETURNS SETOF availabletype AS
 $BODY$
 DECLARE
     v_rec availabletype%rowtype;
 BEGIN
-    FOR v_rec IN  SELECT id, day, status, assigned, userid FROM availability WHERE userid = p_userid AND day >= p_first AND day < p_next LOOP
+    FOR v_rec IN  SELECT id, day, status, assigned, userid FROM availability WHERE ((userid = p_userid) AND (day >= p_first) AND (day < p_next) AND (classid = p_class)) LOOP
         RETURN NEXT v_rec;
     END LOOP;
     RETURN;
@@ -117,11 +128,11 @@ $BODY$
     LANGUAGE 'plpgsql' VOLATILE
     COST 100
     ROWS 1000;
-ALTER FUNCTION getavailability(integer, date, date) OWNER TO "www-data";
+ALTER FUNCTION getavailability(integer, date, date, integer) OWNER TO "www-data";
 
 
 --returns all of the users available during a given window
-CREATE OR REPLACE FUNCTION getavailable(p_first date, p_next date)
+CREATE OR REPLACE FUNCTION getavailable(p_first date, p_next date, p_class integer, p_unavailable integer)
   RETURNS SETOF availableuser AS
 $BODY$
 DECLARE
@@ -138,13 +149,15 @@ BEGIN
         users.isadmin,
         availability.day, 
         availability.status, 
-        availability.assigned 
+        availability.assigned,
+        availability.classid
     FROM 
         availability, users 
     WHERE 
         ((users.id = availability.userid)
-        AND (day >= p_first AND day < p_next) 
-        AND (status != '3' OR assigned = TRUE))
+        AND (day >= p_first AND day < p_next)
+        AND (availability.classid = p_class) 
+        AND ((status != p_unavailable) OR (assigned = TRUE)))
     ORDER BY users.firstname
     LOOP
     RETURN NEXT v_rec;
@@ -155,7 +168,7 @@ $BODY$
   LANGUAGE plpgsql VOLATILE
   COST 100
   ROWS 1000;
-ALTER FUNCTION getavailable(date, date) OWNER TO "www-data";
+ALTER FUNCTION getavailable(date, date, integer, integer) OWNER TO "www-data";
 
 
 
@@ -181,13 +194,13 @@ ALTER FUNCTION gethosts(date, date) OWNER TO "www-data";
 
 
 -- returns which statuses are reportable
-CREATE OR REPLACE FUNCTION getreportable()
+CREATE OR REPLACE FUNCTION getreportable(p_class integer)
   RETURNS SETOF statustype AS
 $BODY$
 DECLARE
     v_rec statustype%rowtype;
 BEGIN
-    FOR v_rec IN SELECT id, name, reportable FROM status WHERE reportable = TRUE LOOP
+    FOR v_rec IN SELECT id, name, reportable, isunavailable FROM status WHERE ((reportable = TRUE) AND (classid = p_class)) LOOP
         RETURN NEXT v_rec;
     END LOOP;
     RETURN;
@@ -196,17 +209,17 @@ $BODY$
   LANGUAGE 'plpgsql' VOLATILE
   COST 100
   ROWS 1000;
-ALTER FUNCTION getreportable() OWNER TO "www-data";
+ALTER FUNCTION getreportable(integer) OWNER TO "www-data";
 
 
 -- returns which statuses are selectable
-CREATE OR REPLACE FUNCTION getselectable()
+CREATE OR REPLACE FUNCTION getselectable(p_class integer)
   RETURNS SETOF statustype AS
 $BODY$
 DECLARE
     v_rec statustype%rowtype;
 BEGIN
-    FOR v_rec IN SELECT id, name, reportable FROM status LOOP
+    FOR v_rec IN SELECT id, name, reportable, isunavailable FROM status WHERE (classid = p_class) LOOP
         RETURN NEXT v_rec;
     END LOOP;
     RETURN;
@@ -215,11 +228,33 @@ $BODY$
   LANGUAGE 'plpgsql' VOLATILE
   COST 100
   ROWS 1000;
-ALTER FUNCTION getselectable() OWNER TO "www-data";
+ALTER FUNCTION getselectable(integer) OWNER TO "www-data";
 
+-- returns the status that represents unavailable
+CREATE OR REPLACE FUNCTION getunavailablestatus(p_class integer)
+  RETURNS SETOF statustype AS
+$BODY$
+DECLARE
+    v_rec statustype%rowtype;
+    v_cnt integer;
+BEGIN
+    SELECT COUNT(id) INTO v_cnt FROM status WHERE ((classid = p_class) AND (isunavailable = TRUE));
+    IF v_cnt != 1 THEN
+        RETURN;
+    END IF;
+    FOR v_rec IN SELECT id, name, reportable, isunavailable FROM status WHERE ((classid = p_class) AND (isunavailable = TRUE)) LOOP
+        RETURN NEXT v_rec;
+    END LOOP;
+    RETURN;
+END;
+$BODY$
+  LANGUAGE 'plpgsql' VOLATILE
+  COST 100
+  ROWS 1000;
+ALTER FUNCTION getunavailablestatus(integer) OWNER TO "www-data";
 
 -- updates how available (or not) a particular user is for a particular day
-CREATE OR REPLACE FUNCTION updateavailability(p_userid integer, p_date date, p_status integer)
+CREATE OR REPLACE FUNCTION updateavailability(p_userid integer, p_date date, p_status integer, p_class integer)
   RETURNS boolean AS
 $BODY$
 DECLARE
@@ -229,18 +264,18 @@ BEGIN
     IF v_cnt = 0 THEN
         RETURN FALSE;
     END IF;
-    SELECT COUNT(id) INTO v_cnt FROM availability WHERE ((userid = p_userid) AND (day = p_date));
+    SELECT COUNT(id) INTO v_cnt FROM availability WHERE ((userid = p_userid) AND (day = p_date) AND (classid = p_class));
     IF v_cnt = 0 THEN
-        INSERT INTO availability (userid, day, status) VALUES (p_userid, p_date, p_status);
+        INSERT INTO availability (userid, day, status, classid) VALUES (p_userid, p_date, p_status, p_class);
     ELSE
-        UPDATE availability SET status = p_status WHERE ((userid = p_userid) AND (day = p_date));
+        UPDATE availability SET status = p_status WHERE ((userid = p_userid) AND (day = p_date) AND (classid = p_class));
     END IF;
     RETURN TRUE;
 END;
 $BODY$
   LANGUAGE 'plpgsql' VOLATILE
   COST 100;
-ALTER FUNCTION updateavailability(integer, date, integer) OWNER TO "www-data";
+ALTER FUNCTION updateavailability(integer, date, integer, integer) OWNER TO "www-data";
 
 
 -- updates the number of hosts required for a particular day
@@ -414,5 +449,22 @@ $BODY$
 ALTER FUNCTION getchangedusers(date, date) OWNER TO "www-data";
 
 
-
+-- gets the class name
+-- returns which statuses are reportable
+CREATE OR REPLACE FUNCTION getclassinfo(p_class integer)
+  RETURNS SETOF classtype AS
+$BODY$
+DECLARE
+    v_rec classtype%rowtype;
+BEGIN
+    FOR v_rec IN SELECT id, name FROM class WHERE (id = p_class) LOOP
+        RETURN NEXT v_rec;
+    END LOOP;
+    RETURN;
+END;
+$BODY$
+  LANGUAGE 'plpgsql' VOLATILE
+  COST 100
+  ROWS 1000;
+ALTER FUNCTION getclassinfo(integer) OWNER TO "www-data";
 

@@ -6,8 +6,8 @@ from utility import user
 class dataconnect:
     def __init__(self):
         self._config = ConfigParser.ConfigParser()
-        file = os.path.dirname(__file__) + "/../../main.cfg"
-        self._config.read(file)
+        configFile = os.path.dirname(__file__) + "/../../main.cfg"
+        self._config.read(configFile)
         conn = self._config.get("Main", "localdb")
         self._conn = pyodbc.connect(conn)
     
@@ -25,33 +25,33 @@ class dataconnect:
         if row.assignhost == "0": return False
         return True
 
-    def getSelectable(self):
+    def getSelectable(self, classType):
         status = {}
-        query = 'SELECT id, name FROM getselectable()'
+        query = 'SELECT id, name FROM getselectable(?)'
         cursor = self._conn.cursor()
-        cursor.execute(query)
+        cursor.execute(query, classType)
         for row in cursor:
             status[row.id] = row.name
         cursor.close()
         return status
 
-    def getReportable(self):
+    def getReportable(self, classType):
         status = {}
-        query = 'SELECT id, name FROM getreportable()'
+        query = 'SELECT id, name FROM getreportable(?)'
         cursor = self._conn.cursor()
-        cursor.execute(query)   
+        cursor.execute(query, classType)
         for row in cursor:
             status[row.id] = row.name
         status["assigned"] = "Assigned" # create pseudo assigned status that users in other statuses can also be in
         cursor.close()
         return status   
 
-    def getAvailable(self, first, next):
+    def getAvailable(self, first, next, classType):
         available = {}
-        unavailable = self._config.getint("Main", "unavailable")
-        query = 'SELECT * FROM getavailable(?, ?)'
+        unavailable = self.getUnavailableStatus(classType)
+        query = 'SELECT * FROM getavailable(?, ?, ?, ?)'
         cursor = self._conn.cursor()
-        cursor.execute(query, first, next)
+        cursor.execute(query, first, next, classType, unavailable)
         for row in cursor:
             day = row.day.toordinal()
             if not available.has_key(day):
@@ -74,20 +74,20 @@ class dataconnect:
         cursor.close()
         return available
 
-    def getAvailability(self, userid, first, next):
+    def getAvailability(self, userid, first, next, classType):
         availability = {}
-        query = 'SELECT day, status FROM getavailability(?, ?, ?)'
+        query = 'SELECT day, status FROM getavailability(?, ?, ?, ?)'
         cursor = self._conn.cursor()
-        cursor.execute(query, userid, first, next)
+        cursor.execute(query, userid, first, next, classType)
         for row in cursor:
             availability[row.day.toordinal()]=row.status
         cursor.close()
         return availability
 
-    def updateAvailability(self, userid, date, status):
-        query = 'SELECT updateavailability(?, ?, ?)'
+    def updateAvailability(self, userid, date, status, classType):
+        query = 'SELECT updateavailability(?, ?, ?, ?)'
         cursor = self._conn.cursor()
-        cursor.execute(query, userid, date, status)
+        cursor.execute(query, userid, date, status, classType)
         row = cursor.fetchone()
         cursor.close()
         self._conn.commit()
@@ -109,6 +109,24 @@ class dataconnect:
         cursor.execute(query, date, hosts)
         cursor.close()
         self._conn.commit()
+    
+    def getUnavailableStatus(self, classType):
+        query = 'SELECT id FROM getunavailablestatus(?)'
+        cursor = self._conn.cursor()
+        cursor.execute(query, classType)
+        row = cursor.fetchone()
+        value = row.id
+        cursor.close()
+        return value
+    
+    def getClassName(self, classType):
+        query = 'SELECT name FROM getclassinfo(?)'
+        cursor = self._conn.cursor()
+        cursor.execute(query, classType)
+        row = cursor.fetchone()
+        value = row.name
+        cursor.close()
+        return value
     
     def getUser(self, username):
         userInfo = None
