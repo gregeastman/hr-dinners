@@ -19,7 +19,7 @@ def index(req):
     del dbconn
     
     s = utility.buildTemplate() #%(title)s %(htmlbody)s are the bits to be filled in
-    title = "%(monthName)s %(year)s %(className)s Host Availability Summary" % {'monthName': month_name[first.month], 'year': first.year, 'className': className }
+    title = "%(monthName)s %(year)s %(className)s Availability Summary" % {'monthName': month_name[first.month], 'year': first.year, 'className': className }
     body = """\
 <h2>%(title)s</h2>
 <h4><a href="./?class=%(class)s&month=%(month)s&year=%(year)s">Fill Out Personal Availability For The Month</a></h4>
