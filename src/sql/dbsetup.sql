@@ -125,7 +125,7 @@ CREATE TABLE availability
 (
   id integer NOT NULL DEFAULT nextval('availability_id'::regclass),
   "day" date NOT NULL,
-  status integer NOT NULL DEFAULT 3,
+  status integer NOT NULL,
   assigned boolean NOT NULL DEFAULT FALSE,
   userid integer NOT NULL,
   classid integer NOT NULL,
