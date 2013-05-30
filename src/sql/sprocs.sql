@@ -20,6 +20,7 @@ CREATE TYPE usertype as (
   firstname character varying,
   lastname character varying,
   email character varying,
+  cellphone character varying,
   isadmin boolean
 );
 ALTER TYPE usertype OWNER to "www-data";
@@ -397,7 +398,7 @@ DECLARE
 BEGIN
     SELECT COUNT(id) INTO v_cnt FROM users WHERE ((username = LOWER(p_username)) AND (active = 'TRUE'));
     IF v_cnt = 1 THEN
-        FOR v_rec IN SELECT id, tlgid, username, firstname, lastname, email, isadmin FROM users WHERE ((username = LOWER(p_username)) AND (active = 'TRUE')) LOOP
+        FOR v_rec IN SELECT id, tlgid, username, firstname, lastname, email, cellphone, isadmin FROM users WHERE ((username = LOWER(p_username)) AND (active = 'TRUE')) LOOP
             RETURN NEXT v_rec;
         END LOOP;
     END IF;
