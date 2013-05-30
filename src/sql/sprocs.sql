@@ -31,6 +31,7 @@ CREATE TYPE availableuser as (
   firstname character varying,
   lastname character varying,
   email character varying,
+  cellphone character varying,
   isadmin boolean,
   day date, 
   status integer, 
@@ -145,7 +146,8 @@ BEGIN
         users.username, 
         users.firstname, 
         users.lastname, 
-        users.email, 
+        users.email,
+        users.cellphone,
         users.isadmin,
         availability.day, 
         availability.status, 
@@ -467,4 +469,24 @@ $BODY$
   COST 100
   ROWS 1000;
 ALTER FUNCTION getclassinfo(integer) OWNER TO "www-data";
+
+-- Function: updatecellphone(character varying, character varying)
+
+-- DROP FUNCTION updateuser(character varying, character varying);
+CREATE OR REPLACE FUNCTION updatecellphone(p_tlgid character varying, p_cellphone character varying)
+  RETURNS boolean AS
+$BODY$
+DECLARE
+BEGIN
+    --sanity check variables
+    IF ((p_tlgid = '') OR (p_tlgid IS NULL)) THEN
+        RETURN FALSE;
+    END IF;
+    UPDATE users SET cellphone=p_cellphone WHERE tlgid=p_tlgid;
+    RETURN TRUE;
+END;
+$BODY$
+  LANGUAGE plpgsql VOLATILE
+  COST 100;
+ALTER FUNCTION updatecellphone(character varying, character varying) OWNER TO "www-data";
 

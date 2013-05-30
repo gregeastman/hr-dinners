@@ -11,7 +11,9 @@ class user:
         self.firstname = row.firstname
         self.lastname = row.lastname
         self.email = row.email
+        self.cellphone = row.cellphone
         self.isadmin = row.isadmin
+        
     
     def __del__(self):
         del self.id
@@ -20,7 +22,9 @@ class user:
         del self.firstname
         del self.lastname
         del self.email
+        del self.cellphone
         del self.isadmin
+        
 
 
 def getDate(httpvar):
@@ -132,8 +136,11 @@ def expandUsernames(li, date):
         if ret:
             ret += "<br />"
         user = """\
-<a href="http://guru/Staff/EmployeeProfile.aspx?id=%(tlg)s">%(fullname)s</a>"""
-        user = user % {"tlg": element.tlgid, "fullname": element.firstname + " " + element.lastname }
+<a href="http://guru/Staff/EmployeeProfile.aspx?id=%(tlg)s">%(fullname)s</a>%(cellphone)s"""
+        cellphone = "";
+        if element.cellphone != "":
+            cellphone = ": " + element.cellphone
+        user = user % {"tlg": element.tlgid, "fullname": element.firstname + " " + element.lastname, "cellphone": cellphone }
         ret += user
         if emails:
             emails +=";"

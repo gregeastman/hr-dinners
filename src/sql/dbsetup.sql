@@ -70,6 +70,7 @@ CREATE TABLE users
   email character varying(40),
   active boolean NOT NULL DEFAULT FALSE,
   isadmin boolean NOT NULL DEFAULT FALSE,
+  cellphone character varying(30),
   CONSTRAINT users_pkey PRIMARY KEY (id),
   CONSTRAINT users_username_key UNIQUE (username),
   CONSTRAINT users_tlgid_key UNIQUE (tlgid),
